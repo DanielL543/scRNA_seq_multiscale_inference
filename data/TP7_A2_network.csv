@@ -1,0 +1,14 @@
+,source,source_type,source_weight,source_pred_val,target,target_type,target_weight,target_pred_val,edge_type,edge_pred_val
+0,F11r,input,0.00014094314270316085,1.0,Mapk3,unmeasured,0.0,1.0,1,1.0
+1,Sp1,unmeasured,0.0,1.0,Klf8,output,2.204742547989954,1.0,1,1.0
+2,Mapk3,unmeasured,0.0,1.0,Sp1,output,1.964467560812937,1.0,1,1.0
+3,Mapk3,unmeasured,0.0,1.0,Elk3,output,3.617685735566765,1.0,1,1.0
+4,Klf8,unmeasured,0.0,1.0,Ctbp2,output,2.69922461436796,1.0,1,1.0
+5,_s,unmeasured,0.0,1.0,_pert_c0,unmeasured,0.0,1.0,1,1.0
+6,_pert_c0,unmeasured,0.0,1.0,F11r,unmeasured,0.0,1.0,1,1.0
+7,Elk3,unmeasured,0.0,1.0,_meas_c0,unmeasured,0.0,1.0,1,1.0
+8,Ctbp2,unmeasured,0.0,1.0,_meas_c0,unmeasured,0.0,1.0,1,1.0
+9,Klf8,unmeasured,0.0,1.0,_meas_c0,unmeasured,0.0,1.0,1,1.0
+10,Sp1,unmeasured,0.0,1.0,_meas_c0,unmeasured,0.0,1.0,1,1.0
+11,_meas_c0,unmeasured,0.0,1.0,_t,unmeasured,0.0,1.0,1,1.0
+12,,unmeasured,0.0,0.0,_s,unmeasured,0.0,1.0,0,1.0
