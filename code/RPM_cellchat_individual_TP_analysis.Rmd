@@ -1,0 +1,108 @@
+---
+title: "RPM CellChat Individual Analysis"
+output: html_document
+date: "2024-10-21"
+---
+
+In this markdown, I am performing the analysis of an individual timepoint within the SCLC RPM dataset. The same approach is applied to the other timepoints before the cellchat objects together and performing a stratified comparison. For this markdown, I am using TP7, but the same code is used for the other timepoints.
+
+# Load required libraries
+```{r}
+library(CellChat)
+library(patchwork)
+library(tidyverse)
+library(reticulate)
+options(stringsAsFactors = FALSE)
+```
+
+# Read in the data files
+```{r}
+# Import sparse matrix
+scipy_sparse = import("scipy.sparse")
+tp7_csr_matrix = scipy_sparse$load_npz("/home/dlopez7/SCLC/RPM/matrix_data/TP7_norm_data.npz")
+```
+
+```{r}
+# Load in var and obs files from the anndata object
+TP7_var <- read.csv("/home/dlopez7/SCLC/RPM/matrix_data/AD_norm_TP7_var.csv", header = TRUE)
+
+TP7_obs <- read.csv("/home/dlopez7/SCLC/RPM/matrix_data/AD_norm_TP7_obs.csv", header = TRUE)
+rownames(TP7_obs) <- TP7_obs$ID
+```
+
+```{r}
+# Format the matrix
+df_7 <- as.data.frame(as.matrix(tp7_csr_matrix))
+df_7 <- t(df_7)
+colnames(df_7) <- TP7_obs[,1]
+rownames(df_7) <- TP7_var[,1]
+```
+
+# Create CellChat object
+```{r}
+norm7_cellchat <- createCellChat(object = df_7, 
+                                 meta = TP7_obs, 
+                                 group.by = "ParetoTI_specialists")
+```
+
+# Set the ligand-receptor interaction database
+```{r}
+CellChatDB <- CellChatDB.mouse
+showDatabaseCategory(CellChatDB)
+
+# show structure of the database
+dplyr::glimpse(CellChatDB$interaction)
+
+# use all CellChatDB for cell-cell communication analysis
+CellChatDB.use <- CellChatDB
+
+# set the used database in the object
+norm7_cellchat@DB <- CellChatDB.use
+```
+
+# Preprocessing the expression data for cell-cell communication analysis
+```{r}
+# subset the sexpression data of signaling genes to save on computation cost
+norm7_cellchat <- subsetData(norm7_cellchat)
+
+norm7_cellchat <- identifyOverExpressedGenes(norm7_cellchat)
+norm7_cellchat <- identifyOverExpressedInteractions(norm7_cellchat)
+```
+
+```{r}
+# Inference of cecll-cell communication network
+norm7_cellchat <- computeCommunProb(norm7_cellchat)
+```
+
+```{r}
+# Filter out cell-cell communication if there are only a few cells in cell groups
+norm7_cellchat <- filterCommunication(norm7_cellchat, min.cells = 10)
+```
+
+```{r}
+# Infer the cell-cell communication at a signaling pathway level
+norm7_cellchat <- computeCommunProbPathway(norm7_cellchat)
+```
+
+```{r}
+# Calculate the aggregaated cell-cell communication network
+norm7_cellchat <- aggregateNet(norm7_cellchat)
+```
+
+# CellChat System Analysis
+```{r}
+# Compute network centrality scores
+norm7_cellchat <- netAnalysis_computeCentrality(norm7_cellchat, slot.name = "netP")
+# Visualize computed scores
+# netAnalysis_signalingRole_network(norm7_cellchat, width = 8, height = 2.5, font.size = 10)
+```
+
+# Save CellChat object
+```{r}
+# saveRDS(norm7_cellchat, 'norm_count_TP7.rds')
+```
+
+```{r}
+sessionInfo()
+```
+

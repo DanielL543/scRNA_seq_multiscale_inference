@@ -1,0 +1,156 @@
+---
+title: "RPM decoupleR"
+output: html_document
+date: "2024-10-21"
+---
+
+In this markdown, I am performing the differential expression analysis using Seurat and the transcription factor activity inference using decoupleR. Here, I am only performing the analysis on the RPM SCLC TP7 data but the procedure is the same for the other timepoints and datasets.
+
+# Load necessary packages
+```{r}
+library(tidyverse)
+library(Seurat)
+library(decoupleR)
+library(reticulate)
+```
+
+# Read in data files
+```{r}
+# Import sparse matrix
+scipy_sparse = import("scipy.sparse")
+tp7_csr_matrix = scipy_sparse$load_npz("/home/dlopez7/SCLC/RPM/matrix_data/TP7_raw_counts.npz")
+```
+
+```{r}
+# Load in var and obs files
+TP7_var <- read.csv("/home/dlopez7/SCLC/RPM/matrix_data/AD_norm_TP7_var.csv", header = TRUE)
+
+TP7_obs <- read.csv("/home/dlopez7/SCLC/RPM/matrix_data/AD_norm_TP7_obs.csv", header = TRUE)
+rownames(TP7_obs) <- TP7_obs$ID
+```
+
+```{r}
+# Format the matrix
+df_7 <- as.data.frame(as.matrix(tp7_csr_matrix))
+df_7 <- t(df_7)
+colnames(df_7) <- TP7_obs[,1]
+rownames(df_7) <- TP7_var[,1]
+
+# Convert matrix to sparse matrix
+df_7_sparse <- as(df_7, "sparseMatrix")
+```
+
+# Seurat Workflow
+```{r}
+# Create seurat object
+mRPM_TP7 <- CreateSeuratObject(counts = df_7_sparse, project = "Mouse_RPM_TP7")
+```
+
+```{r}
+# Extract cell type label from obs df for each cell
+ParetoTI <- TP7_obs$ParetoTI_specialists
+
+# Add labels to seurat object
+mRPM_TP7 <- AddMetaData(mRPM_TP7, metadata = ParetoTI, col.name = "Specialist")
+```
+
+```{r}
+# Filter Malat1
+mRPM_TP7 <- mRPM_TP7[!grepl("Malat1", rownames(mRPM_TP7)), ]
+
+# Filter Mitochondrial
+mRPM_TP7 <- mRPM_TP7[!grepl("^Mt-", rownames(mRPM_TP7)), ]
+
+# Filter Ribosomal
+mRPM_TP7 <- mRPM_TP7[!grepl("^Rp", rownames(mRPM_TP7)), ]
+```
+
+```{r}
+# Normalize the data
+mRPM_TP7 <- NormalizeData(mRPM_TP7)
+
+# Find Variable Features
+mRPM_TP7 <- FindVariableFeatures(mRPM_TP7, selection.method = "vst", nfeatures = 2000)
+
+# Scale data
+all.genes7 <- rownames(mRPM_TP7)
+mRPM_TP7 <- ScaleData(mRPM_TP7, features = all.genes7)
+
+# Perform linear dimensional reduction
+mRPM_TP7 <- RunPCA(mRPM_TP7, features = VariableFeatures(mRPM_TP7), verbose = F)
+
+# Cluster cells
+mRPM_TP7 <- FindNeighbors(mRPM_TP7, dims = 1:20)
+mRPM_TP7 <- FindClusters(mRPM_TP7, resolution = 0.5)
+
+# Run UMAP
+mRPM_TP7 <- RunUMAP(mRPM_TP7, dims = 1:20)
+```
+
+```{r}
+# Plot UMAP using specialist label
+DimPlot(mRPM_TP7, reduction = "umap", group.by = "Specialist")
+```
+
+```{r}
+# Set identity of object to specialist subtypes
+Idents(mRPM_TP7) <- "Specialist"
+
+# Function to find markers
+find_markers <- function(seurat_object, group1, group2, min_pct = 0.1, logfc_threshold = 0.1){
+  markers <- FindMarkers(seurat_object, ident.1=group1, ident.2=group2, min.pct=min_pct, logfc.threshold=logfc_threshold) %>% 
+    mutate(Gene = rownames(.)) %>% 
+    filter(p_val_adj <= 0.05)
+  
+  return(markers)
+}
+
+# Find markers for each subtype
+A2_markers <- find_markers(mRPM_TP7, 'A2', c('A/N', 'P/Y'))
+AN_markers <- find_markers(mRPM_TP7, 'A/N', c('A2', 'P/Y'))
+PY_markers <- find_markers(mRPM_TP7, 'P/Y', c('A2', 'A/N'))
+```
+
+```{r}
+# Save markers df
+# write_tsv(A2_markers, '/path/to/file')
+# write_tsv(AN_markers, '/path/to/file')
+# write_tsv(PY_markers, '/path/to/file')
+```
+
+# DecoupleR Workflow
+```{r}
+# Get CollecTRI network
+net <- get_collectri(organism = "mouse", split_complexes = FALSE)
+```
+
+```{r}
+# Function to extract log-fold values and format df for ulm method
+extract_log2 <- function(marker_df){
+  log2FC <- data.frame(marker_df$avg_log2FC)
+  rownames(log2FC) <- toupper(rownames(marker_df))
+  
+  return(log2FC)
+}
+
+logFC_A2 <- extract_log2(A2_markers) 
+logFC_AN <- extract_log2(AN_markers)
+logFC_PY <- extract_log2(PY_markers)
+```
+
+```{r}
+# Run ULM TF activity inference for each cell type
+TP7_acts_A2 <- run_ulm(mat = logFC_A2, network = net, .source = "source", .target = "target", .mor = "mor", minsize = 0) 
+
+TP7_acts_AN <- run_ulm(mat = logFC_AN, network = net, .source = "source", .target = "target", .mor = "mor", minsize = 0)
+
+TP7_acts_PY <- run_ulm(mat = logFC_PY, network = net, .source = "source", .target = "target", .mor = "mor", minsize = 0)
+```
+
+```{r}
+# Save TF activity results
+# write_tsv(TP7_acts_A2, '/path/to/file')
+# write_tsv(TP7_acts_AN, '/path/to/file')
+# write_tsv(TP7_acts_PY, '/path/to/file')
+```
+

@@ -1,0 +1,193 @@
+---
+title: "Network_creation"
+output: html_document
+date: "2024-10-22"
+---
+
+In this markdown, I am creating the final signaling network, connecting the intracellular communication with the intercellular signaling. The files generated here are exported to cytoscape. I am using the TP7 data as an example but the procedure is the same for the other datasets. Additionally, I am only making the network for the A2 cell type, but you just need to replace the files for the other cell types.
+
+# Load packages
+```{r}
+library(tidyverse)
+library(OmnipathR)
+library(nichenetr) # Load this for easy gene ortholog conversion
+library(reticulate)
+```
+
+# Load expression data
+```{r}
+# Read in expression data
+scipy_sparse = import("scipy.sparse")
+tp7_csr_matrix = scipy_sparse$load_npz("/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/matrix_data/TP7_norm_data.npz")
+
+# Load in var and obs files
+TP7_var <- read.csv("/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/matrix_data/AD_norm_TP4_var.csv", header = TRUE)
+
+TP7_obs <- read.csv("/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/matrix_data/AD_norm_TP7_obs.csv", header = TRUE)
+rownames(TP7_obs) <- TP7_obs$ID
+
+# Format the matrix
+df_7 <- as.data.frame(as.matrix(tp7_csr_matrix))
+df_7 <- t(df_7)
+colnames(df_7) <- TP7_obs[,1]
+rownames(df_7) <- TP7_var[,1]
+```
+
+```{r}
+# Extract cell IDs for each cell type
+cellIDs_A2 <- TP7_obs %>%
+  filter(ParetoTI_specialists == 'A2') %>% # replace A2 with other cell type if needed
+  pull(ID)
+```
+
+```{r}
+# Read in L-R interaction dataframe
+df7.net <- as.data.frame(read_tsv('/Users/lopez/OneDrive/Documents/School/Research/SCLC/Inferring_mechanisms_heterogeneity_maintanence/clean_code/data/df7Net.txt',
+                                   show_col_types = F))
+```
+
+```{r}
+# Read in corneto signaling network from python file
+TP7_A2_network <- read_csv('/Users/lopez/OneDrive/Documents/School/Research/SCLC/Inferring_mechanisms_heterogeneity_maintanence/clean_code/data/corneto_results/TP7_A2_network.csv',
+                            show_col_types = F)
+```
+
+```{r}
+# Extract relevant columns from each
+TP7_A2_network <- TP7_A2_network[c(1:5), c(2,6,10)]
+```
+
+```{r}
+# Read in interactions from OmniPath
+ppis <- import_omnipath_interactions(datasets = c('omnipath', 'kinaseextra', 'pathwayextra'), organism = 10090) %>% 
+  filter(curation_effort > 1)
+tf_regulons <- import_transcriptional_interactions(organism = 10090) %>% 
+  filter(curation_effort > 0)
+```
+
+```{r}
+# Read in SCLC gene list
+SCLC_genes <- read_tsv('/Users/lopez/OneDrive/Documents/School/Research/SCLC/Inferring_mechanisms_heterogeneity_maintanence/clean_code/gene_list/sclc_gene_sig_clustered.txt', show_col_types = F)
+# Convert to human genes to one-to-one orthologs of mouse gene symbols
+SCLC_human_symbols <- SCLC_genes$Gene
+SCLC_mouse_symbols <- SCLC_human_symbols %>% convert_human_to_mouse_symbols()
+SCLC_genes$Gene <- SCLC_mouse_symbols
+SCLC_genes <- na.omit(SCLC_genes)
+```
+
+```{r}
+# Read in EMT gene list
+EMT_genes <- read.delim('/Users/lopez/OneDrive/Documents/School/Research/SCLC/Inferring_mechanisms_heterogeneity_maintanence/clean_code/gene_list/EMTGenesUpdateHGNCNames.txt')
+
+# Convert to human genes to one-to-one orthologs of mouse gene symbols
+EMT_human_symbols <- EMT_genes$Gene
+EMT_mouse_symbols <- EMT_human_symbols %>% convert_human_to_mouse_symbols()
+EMT_genes$Gene <- EMT_mouse_symbols
+EMT_genes <- na.omit(EMT_genes)
+
+# Create vectors of epithelial and mesenchymal genes
+epithelial_genes <- EMT_genes %>%
+  filter(Annotation == 'E')
+epithelial_genes <- epithelial_genes$Gene
+
+mesenchymal_genes <- EMT_genes %>%
+  filter(Annotation == 'M')
+mesenchymal_genes <- mesenchymal_genes$Gene
+```
+
+```{r}
+# Combine gene lists
+gene_list <- c(EMT_genes$Gene, SCLC_genes$Gene) %>% unique()
+```
+
+```{r}
+# Read in TF activity results
+TP7_A2_TFs <- read_tsv('/Users/lopez/OneDrive/Documents/School/Research/SCLC/Inferring_mechanisms_heterogeneity_maintanence/clean_code/data/active_A2_TFs_TP7.txt',
+                        show_col_types = F)
+```
+
+```{r}
+# Read in differential expression results
+TP7_A2_markers <- read_tsv('/Users/lopez/OneDrive/Documents/School/Research/SCLC/Inferring_mechanisms_heterogeneity_maintanence/clean_code/data/TP7_a2_markers.txt',
+                            show_col_types = F)
+```
+
+```{r}
+# Create vector with TFs (I just look at the corneto graph to see the TFs)
+A2_TFs <- c('Sp1', 'Elk3', 'Klf8', 'Ctbp2')
+
+# Create df of TFs and their regulons
+a2_tf_regulons <- tf_regulons %>% 
+  filter(source_genesymbol %in% A2_TFs & target_genesymbol %in% TP7_A2_markers$Gene) %>% # Link TFs to target genes
+  filter(source_genesymbol %in% rownames(df_7)) %>% # Make sure all genes are in expression data
+  filter(target_genesymbol %in% gene_list) %>%  # Keep the Tf-regulons in which the target gene is in the gene list
+  mutate(edge_type = ifelse(consensus_inhibition == 1, -1, 1)) %>%  
+  merge(TP7_A2_markers[,c(2,6)], by.x='target_genesymbol', by.y='Gene') %>% # Add log-fold values for each target gene
+  filter((consensus_stimulation == 1 & avg_log2FC > 0) | (consensus_inhibition == 1 & avg_log2FC < 0)) %>% # filter based on congruence of edge_type and logfold
+  select(source_genesymbol, target_genesymbol, edge_type) %>% 
+  dplyr::rename('source' = source_genesymbol, 'target' = target_genesymbol)
+```
+
+```{r}
+# Create dataframe with the receptors
+a2_receptors <- c('F11r')
+
+a2_lr_network <- df7.net %>% 
+  filter(target == 'A2' & receptor %in% a2_receptors) %>% 
+  select(ligand, receptor) %>% 
+  dplyr::rename('source'=ligand, 'target'=receptor) %>%
+  mutate(edge_type=1)
+```
+
+```{r}
+# Create final graph and table attribute dataframes
+a2_final_network <- bind_rows(a2_lr_network, 
+                              TP7_A2_network, 
+                              a2_tf_regulons)
+
+# Remove duplicate interactions
+# Create unique identifier for each interaction
+a2_final_network$interaction <- paste0(a2_final_network$source,
+                                       '_',
+                                       a2_final_network$target)
+# Identify and remove duplicated interactions
+duplicated_interactions <- duplicated(a2_final_network$interaction)
+a2_final_network <- a2_final_network[!duplicated_interactions, ]
+# Remove 'interaction' column
+a2_final_network <- a2_final_network[, -ncol(a2_final_network)]
+
+# Create attributes table
+all_genes_a2 <- unique(c(a2_final_network$source,
+                         a2_final_network$target))
+
+table_attributes_a2 <- tibble(Gene = all_genes_a2)
+
+table_attributes_a2 <- table_attributes_a2 %>%
+  mutate(
+    Role = case_when(
+      Gene %in% a2_lr_network$source ~'Ligand',
+      Gene %in% a2_lr_network$target ~'Receptor',
+      Gene %in% a2_tf_regulons$target~'Target Gene',
+      Gene %in% A2_TFs ~ 'Transcription Factor',
+      TRUE ~ 'Signaling Intermediate'
+    ),
+    EMT_Marker = case_when(
+      Gene %in% epithelial_genes ~ 'Epithelial Marker',
+      Gene %in% mesenchymal_genes ~ 'Mesenchymal Marker',
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  left_join(., TP7_A2_markers[, c(2,6)], by = 'Gene') # add in log-fold value to color target genes
+```
+
+```{r}
+# Make sure every node/gene is present in the expression data
+a2_final_network %>%
+  filter(!(source %in% rownames(df_7)) & target %in% rownames(df_7))
+```
+
+# Save network files in order to import in cytoscape
+```{r}
+# write_tsv(a2_final_network, '/path/to/final_network.txt')
+# write_tsv(table_attributes_a2, '/path/to/attributes_table.txt')
+```

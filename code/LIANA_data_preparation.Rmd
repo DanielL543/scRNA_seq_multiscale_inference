@@ -1,0 +1,165 @@
+---
+title: "LIANA_data_preparation"
+output: html_document
+date: "2024-10-22"
+---
+
+In this markdown, I am taking the outputs from the `RPM_cellchat_individual_TP_analysis.Rmd` and `RPM_DEA_decoupleR.Rmd` markdowns and preparing them for the LIANA+ workflow. I am using the RPM SCLC data as an example but the code is the same for the datasets. Also, I am only focusing on TP7 and TP11 in this dataset since this is when both the NE/epithelial and non-NE/mesenchymal populations are present.
+
+# Load necessary packages
+```{r}
+library(tidyverse)
+library(OmnipathR)
+library(reticulate)
+```
+
+# Read in data
+```{r}
+# Function to load and format data
+load_and_format_data <- function(matrix_file, var_file, obs_file) {
+  # Import sparse matrix
+  scipy_sparse <- import("scipy.sparse")
+  tp_matrix <- scipy_sparse$load_npz(matrix_file)
+  
+  # Load var and obs files
+  var_data <- read.csv(var_file, header = TRUE)
+  obs_data <- read.csv(obs_file, header = TRUE)
+  
+  # Set row names for obs_data
+  rownames(obs_data) <- obs_data$ID
+  
+  # Format the matrix
+  df <- as.data.frame(as.matrix(tp_matrix))
+  df <- t(df)
+  colnames(df) <- obs_data[, 1]
+  rownames(df) <- var_data[, 1]
+  
+  return(df)
+}
+
+# Define file paths for the different datasets
+matrix_files <- c(
+  "/home/dlopez7/SCLC/RPM/matrix_data/TP7_norm_data.npz",
+  "/home/dlopez7/SCLC/RPM/matrix_data/TP11_norm_data.npz"
+)
+
+var_files <- c(
+  "/home/dlopez7/SCLC/RPM/matrix_data/AD_norm_TP7_var.csv",
+  "/home/dlopez7/SCLC/RPM/matrix_data/AD_norm_count_TP11.csv"
+)
+
+obs_files <- c(
+  "/home/dlopez7/SCLC/RPM/matrix_data/AD_norm_TP7_obs.csv",
+  "/home/dlopez7/SCLC/RPM/matrix_data/AD_norm_count_TP11_obs.csv"
+)
+
+# Load and format the data for each dataset
+df_7 <- load_and_format_data(matrix_files[1], var_files[1], obs_files[1])
+df_11 <- load_and_format_data(matrix_files[2], var_files[2], obs_files[2])
+```
+
+# L-R interaction preparation
+```{r}
+# Read in the LR interaction list from the merged cellchat object
+dfLR.net <- readRDS("/home/dlopez7/SCLC/RPM/rds/mouse_cellchat_LR_int.rds")
+```
+
+```{r}
+# Extract TP4 LR interactions
+df7.net <- dfLR.net$TP7
+df11.net <- dfLR.net$TP11
+```
+
+Normalize the cellchat interaction scores from 0-1 since some of the values are really low.
+```{r}
+# Function to normalize LR scores between [0,1]
+normalize_LR <- function(x){
+  LR_strength <- x$prob
+  x$norm_str <- rescale(LR_strength, to = c(0,1))
+}
+
+# Normalize LR scores for each timepoint
+df7.net$norm_str <- normalize_LR(df7.net)
+df11.net$norm_str <- normalize_LR(df11.net)
+```
+
+This next part is only needed for mouse data since OmniPath does not contain L-R complexes for mouse genes.
+```{r}
+# Function to split up receptor complexes
+split_LRs <- function(x){
+  x %>%
+    separate_rows(receptor, sep = '_') %>%
+    mutate(receptor = str_to_title(receptor)) %>%
+    distinct(source, target, ligand, receptor, .keep_all = TRUE)
+}
+
+df7.net <- split_LRs(df7.net)
+df11.net <- split_LRs(df11.net)
+```
+
+Save the different LR dataframes
+
+# OmniPath interactions
+```{r}
+# protein-protein interactions
+# ppi <- import_omnipath_interactions(organism = 10090)
+ppi_with_KE_PE <- import_omnipath_interactions(datasets= c('omnipath', 'pathwayextra', 'kinaseextra'), organism = 10090)
+
+# transcriptional regulation interactions
+TF_regulons <- import_transcriptional_interactions(organism = 10090)
+```
+
+Save the ppi_with_KE_PE and TF_regulons dataframes
+
+# TF activity results
+```{r}
+# Load TF results
+TP7_A2_TFs <- readRDS("/home/dlopez7/SCLC/RPM/rds/TP7_TFs_activity_A2.rds")
+TP7_AN_TFs <- readRDS("/home/dlopez7/SCLC/RPM/rds/TP7_TFs_activity_AN.rds")
+TP7_PY_TFs <- readRDS("/home/dlopez7/SCLC/RPM/rds/TP7_TFs_activity_PY.rds")
+
+TP11_A2_TFs <- readRDS("/home/dlopez7/SCLC/RPM/rds/TP11_TFs_activity_A2.rds")
+TP11_PY_TFs <- readRDS("/home/dlopez7/SCLC/RPM/rds/TP11_TFs_activity_PY.rds")
+```
+
+```{r}
+# Function to filter TF activity df
+TF_filter <- function(TF_df, norm_countDF){
+  TF_df %>%
+    filter(source %in% toupper(rownames(norm_countDF))) %>%
+    filter(p_value < 0.05 & score > 0) %>%
+    arrange(desc(score))
+}
+
+active_A2_TFs_TP7 <- TF_filter(TP7_A2_TFs, df_7)
+active_AN_TFs_TP7 <- TF_filter(TP7_AN_TFs, df_7)
+active_PY_TFs_TP7 <- TF_filter(TP7_PY_TFs, df_7)
+
+active_A2_TFs_TP11 <- TF_filter(TP11_A2_TFs, df_11)
+active_PY_TFs_TP11 <- TF_filter(TP11_PY_TFs, df_11)
+```
+
+Save the TFs
+
+# Differential Expression markers
+```{r}
+# Load DEA results
+TP7_markers_A2 <- read_rds('/home/dlopez7/SCLC/RPM/rds/TP7_markers_A2.rds')
+TP7_markers_AN <- read_rds('/home/dlopez7/SCLC/RPM/rds/TP7_markers_AN.rds')
+TP7_markers_PY <- read_rds('/home/dlopez7/SCLC/RPM/rds/TP7_markers_PY.rds')
+
+TP11_markers_A2 <- read_rds('/home/dlopez7/SCLC/RPM/rds/TP11_markers_A2.rds')
+TP11_markers_PY <- read_rds('/home/dlopez7/SCLC/RPM/rds/TP11_markers_PY.rds')
+```
+
+```{r}
+# Filter for significance
+TP7_markers_A2 <- TP7_markers_A2 %>% filter(p_val_adj < 0.05)
+TP7_markers_AN <- TP7_markers_AN %>% filter(p_val_adj < 0.05)
+TP7_markers_PY <- TP7_markers_PY %>% filter(p_val_adj < 0.05)
+
+TP11_markers_A2 <- TP11_markers_A2 %>% filter(p_val_adj < 0.5)
+TP11_markers_PY <- TP11_markers_PY %>% filter(p_val_adj < 0.5)
+```
+
+Save the filtered DEA results

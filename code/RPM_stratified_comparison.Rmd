@@ -1,0 +1,258 @@
+---
+title: "CellChat RPM Stratified comparison"
+output: html_document
+date: "2024-03-27"
+---
+
+In this markdown, I am merging the cellchat objects from the individual cellchat analysis for each timepoint in the SCLC RPM dataset.
+```{r}
+# Load in libraries
+library(tidyverse)
+library(CellChat)
+library(reticulate)
+library(patchwork)
+library(ComplexHeatmap)
+library(ghibli) # color palette
+options(stringsAsFactors = F)
+
+# Load in plotting functions
+source('/Users/lopez/OneDrive/Documents/School/Research/function_scripts/cellchat_plotting_functions.R')
+```
+
+```{r}
+# Create color palettes
+spirited_cols <- c('#833437FF','#67B9E9FF','#8F8093FF','#C3AF97FF','#44A57CFF','#F0D77BFF') # Colors for cells
+ghibli_div <- c('#0E84B4FF', '#B50A2AFF') # diverging colors
+```
+
+```{r}
+# Create a character vector with the cell type labels
+group.new = c('A/N','A2','None','P/Y','Y')
+
+# Load in cellchat objects
+file_paths <- c('TP4', 'TP7', 'TP11', 'TP14', 'TP17', 'TP21')
+chat_objects <- list()
+
+for(tp in file_paths){
+  file_path <- paste0('/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/CellChat/cellchat_rds/norm_count_', tp, '.rds')
+  chat_objects[[tp]] <- readRDS(file_path)
+  chat_objects[[tp]] <- updateCellChat(chat_objects[[tp]])
+  chat_objects[[tp]] <- liftCellChat(chat_objects[[tp]], group.new = group.new)
+}
+
+# Merge the cellchat objects
+merged_cellchat <- mergeCellChat(chat_objects, 
+                                 add.names = names(chat_objects),
+                                 cell.prefix = T)
+```
+
+```{r}
+# Compare the number of interactions and strength of interactions
+gg1 <- compareInteractions(merged_cellchat,
+                           show.legend = F,
+                           group = c(1,2,3,4,5,6),
+                           color.use = spirited_cols) +
+  labs(title = 'Number of Interactions')
+gg2 <- compareInteractions(merged_cellchat,
+                           show.legend = F,
+                           group = c(1,2,3,4,5,6),
+                           measure = 'weight',
+                           color.use = spirited_cols) +
+  labs(title = 'Interaction strength/weight')
+gg1 + gg2
+```
+
+```{r, fig.width=10, fig.height=6}
+weight.max <- getMaxWeight(object.list = chat_objects, 
+                           attribute = c('idents', 'counts'))
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/num_interactions_cirlce.svg', width=10, height=6)
+par(mfrow=c(2,3), xpd=T)
+for(tp in 1:length(chat_objects)){
+  netVisual_circle(chat_objects[[tp]]@net$count, 
+                   weight.scale=T, 
+                   label.edge = T,
+                   edge.weight.max = weight.max[2],
+                   edge.width.max = 150, 
+                   title.name = paste0('Number of Interactions - ',
+                                       names(chat_objects)[tp]),
+                   vertex.weight = as.numeric(table(chat_objects[[tp]]@idents)),
+                   color.use = spirited_cols,
+                   vertex.label.cex = 2.8,
+                   arrow.size = 0.4)
+}
+# dev.off()
+```
+
+```{r, fig.width=10, fig.height=6}
+weight.max <- getMaxWeight(object.list = chat_objects, 
+                           attribute = c('idents', 'weight'))
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/int_strength_circle.svg', width=10, height=6)
+par(mfrow=c(2,3), xpd=T)
+for(tp in 1:length(chat_objects)){
+  netVisual_circle(chat_objects[[tp]]@net$weight, 
+                   weight.scale=T,
+                   edge.weight.max = weight.max[2],
+                   edge.width.max = 12, 
+                   title.name = paste0('Number Strength - ',
+                                       names(chat_objects)[tp]),
+                   vertex.weight = as.numeric(table(chat_objects[[tp]]@idents)),
+                   color.use = spirited_cols,
+                   vertex.label.cex = 2.8,
+                   arrow.size = 0.4)
+}
+# dev.off()
+```
+
+# Bubble plot of signaling pathways
+```{r}
+# Add weights to dot plot
+# Initialize empty vector
+score_vec <- c()
+
+# Format matrices
+for(i in 1:length(chat_objects)){
+  centr <- slot(chat_objects[[i]], 'netP')$centr
+  outgoing <- matrix(0,
+                     nrow = nlevels(chat_objects[[i]]@idents),
+                     ncol = length(centr))
+  incoming <- matrix(0,
+                     nrow = nlevels(chat_objects[[i]]@idents),
+                     ncol = length(centr))
+  dimnames(outgoing) <- list(levels(chat_objects[[i]]@idents),
+                             names(centr))
+  dimnames(incoming) <- dimnames(outgoing)
+  
+  # Input strength scores to matrices
+  for(j in 1:length(centr)){
+    outgoing[,j] <- centr[[j]]$outdeg
+    incoming[,j] <- centr[[j]]$indeg
+  }
+  
+  # Transpose matrices
+  outgoing <- t(outgoing)
+  incoming <- t(incoming)
+  
+  # Add strength scores
+  out_strength <- rowSums(outgoing)
+  inc_strength <- rowSums(incoming)
+  tot_strength <- out_strength + inc_strength
+  
+  # Store scores in vector
+  score_vec <- c(score_vec, tot_strength)
+}
+```
+
+```{r, fig.height=7, fig.width=4}
+# Extract pathways and create dataframe for easy plotting
+pathways_df <- do.call(rbind, lapply(names(chat_objects), function(tp){
+  data.frame(Pathway = chat_objects[[tp]]@netP$pathways, Timepoint = tp)
+}))
+
+# Add column with signaling pathway weights
+pathways_df$Strength <- score_vec
+
+# Set factor levels for Timepoint
+pathways_df$Timepoint <- factor(pathways_df$Timepoint, 
+                                levels = unique(pathways_df$Timepoint))
+# Sort pathways in alphabetical order
+pathways_df$Pathway <- factor(pathways_df$Pathway,
+                              levels = rev(sort(unique(pathways_df$Pathway))))
+
+# Color EMT dots
+emt_pathways <- c('TGFb','WNT','ncWNT','NOTCH','EGF','FGF','PDGF', 'VEGF',
+                  'BMP','EPHA','EPHB','FN1','JAM','AGRN','MK','SPP1',
+                  'TENASCIN','GAS')
+pathways_df <- pathways_df %>%
+  mutate(EMT_col = ifelse(Pathway %in% emt_pathways, '#5c8fff', '#B50A2AFF'))
+
+# Plot pathways
+# svg('/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/CellChat/output/all_signaling_pathways.svg', height=7, width=4)
+ggplot(pathways_df, aes(x = Timepoint, Pathway)) +
+  geom_point(aes(size=Strength, color = EMT_col)) +
+  scale_color_identity() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, color = 'black'),
+        axis.line = element_line(color = 'black'),
+        axis.text.y = element_text(color = 'black')) +
+  scale_size(name = 'Interaction Strength')
+# dev.off()
+```
+
+# Compare outgoing and incoming signaling 
+```{r, fig.width=17, fig.height=8}
+signaling_heatmaps(chat_objects, 'outgoing', 5, 13)
+```
+
+```{r, fig.width=17, fig.height=8}
+signaling_heatmaps(chat_objects, 'incoming', 5, 13)
+```
+
+```{r, fig.width=17, fig.height=8}
+signaling_heatmaps(chat_objects, 'all', 5, 13)
+```
+
+# Notch pathway
+```{r, fig.width=12}
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/Notch_signaling.svg', width=12)
+plot_agg_pathway(c('TP7','TP11','TP17'), 'NOTCH')
+# dev.off()
+```
+
+# WNT pathway
+```{r, fig.width=12}
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/WNT_signaling.svg', width=12)
+plot_agg_pathway(c('TP7','TP11','TP21'), 'WNT')
+# dev.off()
+```
+
+# SPP1 pathway
+```{r, fig.width=8, fig.height=10}
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/SPP1_signaling.svg', width=8, height=10)
+plot_agg_pathway(c('TP7','TP11','TP14','TP21'), 'SPP1')
+# dev.off()
+```
+
+# TGFb pathway
+```{r, fig.width=12, fig.height=10}
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/TGFb_signaling.svg', width=12, height=10)
+plot_agg_pathway(c('TP7','TP11','TP14','TP17','TP21'), 'TGFb')
+# dev.off()
+```
+
+# CDH pathway
+```{r, fig.width=4, fig.height=5}
+pairLR.cdh1 <- extractEnrichedLR(chat_objects$TP7, 
+                                  signaling = 'CDH', 
+                                  geneLR.return = F)
+
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/CDH1_signaling.svg', width=4, height=5)
+netVisual_individual(chat_objects$TP7, 
+                     signaling = 'CDH', 
+                     pairLR.use = pairLR.cdh1[3,],
+                     layout = 'circle',
+                     color.use = spirited_cols,
+                     vertex.weight = NULL)
+# dev.off()
+```
+
+```{r, fig.width=4, fig.height=5}
+pairLR.fgf <- extractEnrichedLR(chat_objects$TP7, 
+                                  signaling = 'FGF', 
+                                  geneLR.return = F)
+
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/FGF_signaling.svg', width=4, height=5)
+netVisual_individual(chat_objects$TP7, 
+                     signaling = 'FGF', 
+                     pairLR.use = pairLR.fgf[2,],
+                     layout = 'circle',
+                     color.use = spirited_cols,
+                     vertex.weight = NULL)
+# dev.off()
+```
+
+# JAM pathway
+```{r, fig.width=12, fig.height=9}
+# svg('/Users/lopez/Documents/School/Research/SCLC/RPM/CellChat/output/JAM_signaling.svg', width=12, height=9)
+plot_agg_pathway(c('TP4','TP7','TP11','TP14','TP21'), 'JAM')
+# dev.off()
+```
+
