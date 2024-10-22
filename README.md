@@ -1,2 +1,3 @@
-# scRNA_seq_multiscale_inference
-Code for the multiscale inference manuscript
+# scRNA-seq multiscale inference approach
+This contains the code for the analysis in the multiscale inference approach
+paper. 
