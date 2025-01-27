@@ -21,7 +21,7 @@ scipy_sparse = import("scipy.sparse")
 tp7_csr_matrix = scipy_sparse$load_npz("/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/matrix_data/TP7_norm_data.npz")
 
 # Load in var and obs files
-TP7_var <- read.csv("/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/matrix_data/AD_norm_TP4_var.csv", header = TRUE)
+TP7_var <- read.csv("/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/matrix_data/AD_norm_TP7_var.csv", header = TRUE)
 
 TP7_obs <- read.csv("/Users/lopez/OneDrive/Documents/School/Research/SCLC/RPM/matrix_data/AD_norm_TP7_obs.csv", header = TRUE)
 rownames(TP7_obs) <- TP7_obs$ID
