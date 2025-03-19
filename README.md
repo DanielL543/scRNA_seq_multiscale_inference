@@ -56,3 +56,5 @@ from _OmniPath_ are used to add the target genes to the TFs. A dataframe
 consisting of source, target and interaction type is created as well as an 
 attribute table for each gene/node present in the network. These two are 
 exported and used in Cytoscape to create the network.
+
+The code for the mathematical modeling can be found in `/code/model/`.
