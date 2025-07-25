@@ -102,6 +102,13 @@ norm7_cellchat <- netAnalysis_computeCentrality(norm7_cellchat, slot.name = "net
 # saveRDS(norm7_cellchat, 'norm_count_TP7.rds')
 ```
 
+# Subset communications
+```{r}
+df7net <- subsetCommunication(norm7_cellchat)
+# Save df
+write_tsv(df7net, 'df7Net.txt')
+```
+
 ```{r}
 sessionInfo()
 ```

@@ -19,6 +19,9 @@ to create the network. Some filtering is also done in cytoscape to remove any
 signaling intermediates and transcription factors with no downstream targets.
 
 ## **Summary of Steps**
+This is a summary of the steps to follow in order to reproduce the inferred 
+network results for the SCLC RPM dataset.
+
 **Step 1**: Will take the gene expression matrix and follows the standard _CellChat_ 
 workflow. This will infer the active signaling pathways and L-R interactions 
 between the cell types in the data. The processed cellchat object will be saved 
