@@ -2,7 +2,9 @@
 This contains the code for the analysis in the multiscale inference approach 
 manuscript.
 
-To perform the multiscale analysis, follow this code file order:
+To perform the multiscale analysis, follow this code file order (the 
+`RPM_stratified_comparison.Rmd` file only needs to be followed if doing 
+timepoint comparisons):
 1. `RPM_cellchat_individual_TP_analysis.Rmd`
 2. `RPM_stratified_comparison.Rmd`
 3. `RPM_DEA_decoupleR.Rmd`
