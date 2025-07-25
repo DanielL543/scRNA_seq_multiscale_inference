@@ -1,0 +1,20 @@
+Gene	Role	Marker
+F11r	Ligand	Epithelial
+Jam3	Ligand	Mesenchymal
+Sp1	Transcription Factor	NA
+Mapk3	Signaling Intermediate	NA
+Klf8	Transcription Factor	Mesenchymal
+Ctbp2	Transcription Factor	NA
+Elk3	Transcription Factor	NA
+Akr1b8	Target Gene	Epithelial
+Ifitm3	Target Gene	NA
+Scnn1a	Target Gene	Epithelial
+Adgrg1	Target Gene	Epithelial
+Cdh1	Target Gene	Epithelial
+Ascl1	Target Gene	NA
+Spint1	Target Gene	Epithelial
+Bik	Target Gene	Epithelial
+Krt18	Target Gene	Epithelial
+Krt8	Target Gene	Epithelial
+Cd9	Target Gene	Epithelial
+Ppl	Target Gene	Epithelial
