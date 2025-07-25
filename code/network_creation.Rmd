@@ -42,7 +42,7 @@ cellIDs_A2 <- TP7_obs %>%
 
 ```{r}
 # Read in L-R interaction dataframe
-df7.net <- as.data.frame(read_tsv('/Users/lopez/OneDrive/Documents/School/Research/SCLC/Inferring_mechanisms_heterogeneity_maintanence/clean_code/data/df7Net.txt',
+df7.net <- as.data.frame(read_tsv('/Users/lopez/OneDrive/Documents/School/Research/SCLC/Inferring_mechanisms_heterogeneity_maintanence/clean_code/data/df7Net_split_LR.txt',
                                    show_col_types = F))
 ```
 
@@ -188,6 +188,6 @@ a2_final_network %>%
 
 # Save network files in order to import in cytoscape
 ```{r}
-# write_tsv(a2_final_network, '/path/to/final_network.txt')
-# write_tsv(table_attributes_a2, '/path/to/attributes_table.txt')
+# write_tsv(a2_final_network, '/path/to/final_network_A2.txt')
+# write_tsv(table_attributes_a2, '/path/to/attributes_table_A2.txt')
 ```
