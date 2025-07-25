@@ -7,12 +7,12 @@ manuscript.
 To perform the multiscale analysis, follow this code file order (the 
 `RPM_stratified_comparison.Rmd` file only needs to be followed if doing 
 timepoint comparisons):
-1. `RPM_cellchat_individual_TP_analysis.Rmd`
-2. `RPM_stratified_comparison.Rmd`
-3. `RPM_DEA_decoupleR.Rmd`
-4. `LIANA_data_preparation.Rmd`
-5. `liana_signaling_network_inference.py`
-6. `network_creation.Rmd`
+1. [`RPM_cellchat_individual_TP_analysis.Rmd`](code/RPM_cellchat_individual_TP_analysis.Rmd)
+2. [`RPM_stratified_comparison.Rmd`](code/RPM_stratified_comparison.Rmd)
+3. [`RPM_DEA_decoupleR.Rmd`](code/RPM_DEA_decoupleR.Rmd)
+4. [`LIANA_data_preparation.Rmd`](code/LIANA_data_preparation.Rmd)
+5. [`liana_signaling_network_inference.py`](code/liana_signaling_network_inference.py)
+6. [`network_creation.Rmd`](code/network_creation.Rmd)
 
 The final markdown document will create two files that can be used in cytoscape 
 to create the network. Some filtering is also done in cytoscape to remove any 
@@ -27,7 +27,7 @@ to be used in the subsequent steps.
 **Step 2**: This step is only for comparing the inferred cell-cell communication 
 networks in a temporal dataset. Will read in the processed cellchat objects for
 each individual timepoint and follows the _CellChat_ comparison analysis 
-workflow. This step is not necessary to proceed with the following steps.
+workflow. **This step is not necessary to proceed with the following steps.**
 
 **Step 3**: This will perform differential expression analysis and transcription
 factor activity inference for each cell type present in the data. This will 
