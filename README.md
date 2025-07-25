@@ -28,7 +28,7 @@ between the cell types in the data. The processed cellchat object will be saved
 to be used in the subsequent steps.
 - Input files: [TP7 sparse matrix](data/TP7_norm_data.npz), [TP7 cell metadata](data/AD_norm_TP7_obs.csv),
 [TP7 gene metadata](data/AD_norm_TP7_var.csv)
-- Generated output file: [TP7 L-R interactions](/data/df7Net.txt)
+- Generated output file: [TP7 L-R interactions](data/df7net.txt)
 
 **Step 2**: This step is only for comparing the inferred cell-cell communication 
 networks in a temporal dataset. Will read in the processed cellchat objects for
