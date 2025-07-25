@@ -26,6 +26,9 @@ network results for the SCLC RPM dataset.
 workflow. This will infer the active signaling pathways and L-R interactions 
 between the cell types in the data. The processed cellchat object will be saved 
 to be used in the subsequent steps.
+- Input files: [TP7 sparse matrix](data/TP7_norm_data.npz), [TP7 cell metadata](data/AD_norm_TP7_obs.csv),
+[TP7 gene metadata](data/AD_norm_TP7_var.csv)
+- Output files:[TP7 L-R interactions](/data/df7Net.txt)
 
 **Step 2**: This step is only for comparing the inferred cell-cell communication 
 networks in a temporal dataset. Will read in the processed cellchat objects for
@@ -64,4 +67,4 @@ consisting of source, target and interaction type is created as well as an
 attribute table for each gene/node present in the network. These two are 
 exported and used in Cytoscape to create the network.
 
-The code for the mathematical modeling can be found in `/code/model/`.
+The code for the mathematical modeling can be found in [`/code/model/`](code/model/).
