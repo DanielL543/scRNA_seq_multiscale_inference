@@ -2,6 +2,8 @@
 This contains the code for the analysis in the multiscale inference approach 
 manuscript.
 
+![Multiscale Inference Overview](github_pipeline_image.png)
+
 To perform the multiscale analysis, follow this code file order (the 
 `RPM_stratified_comparison.Rmd` file only needs to be followed if doing 
 timepoint comparisons):
