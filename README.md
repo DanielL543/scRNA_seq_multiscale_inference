@@ -90,4 +90,4 @@ for the other subtypes to generate the other networks.
 [TP7 A2 DEA results](code/rds/TP7_markers_A2.rds)
 - Generated output files (these files are used in cytoscape): [Final network for the A2 subtype](data/final_network_A2.txt), [Network attributes for A2 subtype](data/attributes_table_A2.txt)
 
-The code for the mathematical modeling can be found in [`/code/model/`](code/model/).
+The code for the mathematical modeling and parameter scanning can be found in [`/code/model/`](code/model/).
