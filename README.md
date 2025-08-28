@@ -1,6 +1,5 @@
 # scRNA-seq multiscale inference approach
-This contains the code for the analysis in the multiscale inference approach 
-manuscript.
+This contains the code for the analysis in the *Intercellular signaling reinforces single-cell level phenotypic transitions and facilitates robust re-equilibrium of heterogeneous cancer cell populations* [Paper Link](https://doi.org/10.1186/s12964-025-02405-7)
 
 ![Multiscale Inference Overview](github_pipeline_image.png)
 
